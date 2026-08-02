@@ -1,5 +1,5 @@
 <!--
-  The Side Bar (Chirpy Custom with Grass Widget)
+  The Side Bar (Chirpy Latest Custom Sidebar)
 -->
 
 <aside aria-label="Sidebar" id="sidebar" class="d-flex flex-column align-items-end">
@@ -13,7 +13,7 @@
             {{ site.avatar | relative_url }}
           {%- endif -%}
         {%- endcapture -%}
-        <img src="{{ avatar_url | opacity_feature }}" width="112" height="112" alt="avatar" onerror="this.style.display='none'">
+        <img src="{{ avatar_url }}" width="112" height="112" alt="avatar" onerror="this.style.display='none'">
       {%- endif -%}
     </a>
 
@@ -29,7 +29,7 @@
       <li class="nav-item{% if page.layout == 'home' %} active{% endif %}">
         <a href="{{ '/' | relative_url }}" class="nav-link">
           <i class="fa-fw fas fa-home"></i>
-          <span>{{ site.data.locales[include.lang].tabs.home | upcase }}</span>
+          <span>HOME</span>
         </a>
       </li>
       <!-- the other pages -->
@@ -45,17 +45,17 @@
     </ul>
   </nav>
 
-  <!-- 🌿 사이드바 하단 잔디밭 위젯 (실제 적용 영역) -->
-  <div class="sidebar-bottom-grass w-100 text-center my-3 px-3">
-    <p style="font-size: 0.75rem; color: var(--sidebar-muted-color); margin-bottom: 6px; font-weight: bold;">
+  <!-- 🌿 사이드바 하단 잔디밭 영역 (강제 고정) -->
+  <div class="w-100 text-center my-3 px-3" style="display: block !important;">
+    <p style="font-size: 0.75rem; color: #8b949e; margin-bottom: 6px; font-weight: bold; text-align: center;">
       🌿 GitHub Activity
     </p>
-    <a href="https://github.com/So-Sung" target="_blank" rel="noopener">
-      <img src="https://ghchart.rshah.org/So-Sung" alt="So-Sung's GitHub Activity" style="width: 100%; height: auto; opacity: 0.85;" />
+    <a href="https://github.com/So-Sung" target="_blank" rel="noopener" style="display: block;">
+      <img src="https://ghchart.rshah.org/So-Sung" alt="So-Sung's GitHub Activity" style="width: 100%; height: auto; opacity: 0.85; display: block;" />
     </a>
   </div>
 
-  <div class="sidebar-bottom d-flex flex-wrap  align-items-center w-100">
+  <div class="sidebar-bottom d-flex flex-wrap align-items-center w-100">
     {% unless site.theme_mode %}
       <button type="button" class="mode-toggle btn" aria-label="Switch Mode">
         <i class="fas fa-adjust"></i>
