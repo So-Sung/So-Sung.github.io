@@ -1,0 +1,94 @@
+<!--
+  The Side Bar (Chirpy Custom with Grass Widget)
+-->
+
+<aside aria-label="Sidebar" id="sidebar" class="d-flex flex-column align-items-end">
+  <header class="profile-wrapper">
+    <a href="{{ '/' | relative_url }}" id="avatar" class="rounded-circle">
+      {%- if site.avatar != empty -%}
+        {%- capture avatar_url -%}
+          {%- if site.avatar contains '://' -%}
+            {{ site.avatar }}
+          {%- else -%}
+            {{ site.avatar | relative_url }}
+          {%- endif -%}
+        {%- endcapture -%}
+        <img src="{{ avatar_url | opacity_feature }}" width="112" height="112" alt="avatar" onerror="this.style.display='none'">
+      {%- endif -%}
+    </a>
+
+    <h1 class="site-title">
+      <a href="{{ '/' | relative_url }}">{{ site.title }}</a>
+    </h1>
+    <p class="site-subtitle fst-italic mb-0">{{ site.tagline }}</p>
+  </header> <!-- .profile-wrapper -->
+
+  <nav class="flex-column flex-grow-1 w-100 ps-0">
+    <ul class="nav">
+      <!-- home -->
+      <li class="nav-item{% if page.layout == 'home' %} active{% endif %}">
+        <a href="{{ '/' | relative_url }}" class="nav-link">
+          <i class="fa-fw fas fa-home"></i>
+          <span>{{ site.data.locales[include.lang].tabs.home | upcase }}</span>
+        </a>
+      </li>
+      <!-- the other pages -->
+      {% assign tab_pages = site.tabs | sort: 'order' %}
+      {% for tab in tab_pages %}
+        <li class="nav-item{% if page.url == tab.url %} active{% endif %}">
+          <a href="{{ tab.url | relative_url }}" class="nav-link">
+            <i class="fa-fw {{ tab.icon }}"></i>
+            <span>{{ tab.title | upcase }}</span>
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+  </nav>
+
+  <!-- 🌿 사이드바 하단 잔디밭 위젯 (실제 적용 영역) -->
+  <div class="sidebar-bottom-grass w-100 text-center my-3 px-3">
+    <p style="font-size: 0.75rem; color: var(--sidebar-muted-color); margin-bottom: 6px; font-weight: bold;">
+      🌿 GitHub Activity
+    </p>
+    <a href="https://github.com/So-Sung" target="_blank" rel="noopener">
+      <img src="https://ghchart.rshah.org/So-Sung" alt="So-Sung's GitHub Activity" style="width: 100%; height: auto; opacity: 0.85;" />
+    </a>
+  </div>
+
+  <div class="sidebar-bottom d-flex flex-wrap  align-items-center w-100">
+    {% unless site.theme_mode %}
+      <button type="button" class="mode-toggle btn" aria-label="Switch Mode">
+        <i class="fas fa-adjust"></i>
+      </button>
+      {% if site.data.contact %}
+        <span class="icon-border"></span>
+      {% endif %}
+    {% endunless %}
+
+    {% if site.data.contact %}
+      {% for entry in site.data.contact %}
+        {% assign case_id = entry.type %}
+        {% assign id = entry.value %}
+
+        {% if id %}
+          {%- capture url -%}
+            {%- case case_id -%}
+              {%- when 'github' -%}
+                https://github.com/{{ id }}
+              {%- when 'twitter' -%}
+                https://twitter.com/{{ id }}
+              {%- when 'email' -%}
+                mailto:{{ id }}
+              {%- else -%}
+                {{ id }}
+            {%- endcase -%}
+          {%- endcapture -%}
+
+          <a href="{{ url }}" aria-label="{{ case_id }}" {% unless case_id == 'email' %}target="_blank" rel="noopener"{% endunless %}>
+            <i class="{{ entry.icon }}"></i>
+          </a>
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+  </div> <!-- .sidebar-bottom -->
+</aside> <!-- #sidebar -->
