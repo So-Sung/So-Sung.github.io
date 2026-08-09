@@ -1,6 +1,6 @@
 ---
 title: "APK는 어떻게 만들어지고 실행되는가"
-date: 2026-08-09 20:00:00 +0900
+date: 2026-08-09 19:00:00 +0900
 categories: [Android Security]
 tags: [android, apk, dex, art, reverse-engineering]
 toc: true
