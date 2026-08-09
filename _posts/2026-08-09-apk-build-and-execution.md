@@ -6,7 +6,7 @@ tags: [android, apk, dex, art, apktool, static-analysis, reverse-engineering]
 toc: true
 ---
 
-안드로이드 앱을 해킹해보겠다고 마음먹었을 때 제일 먼저 하고 싶었던 건 Frida를 켜고 후킹 스크립트를 돌려보는 거였다. 근데 생각해보면 순서가 좀 이상하다. 뭘 후킹할지 알아야 후킹을 하지, 그 앱이 어떤 파일들로 이루어져 있고 어떻게 실행되는지도 모르는 채로 스크립트부터 돌리면 결국 "왜 되는지 모르는 우회"만 반복하게 된다. 그래서 도구를 켜기 전에 APK 파일 자체를 뜯어보는 것부터 시작하기로 했다. APK는 어떻게 열어볼 수 있는지, 그냥 unzip으로 풀어보는 것과 APKTool로 디코딩하는 게 뭐가 다른지, 그리고 그 안에 있는 파일들이 실제로 앱을 실행시킬 때 어떤 역할을 하는지를 오늘 정리해본다.
+안드로이드 앱을 해킹해보겠다고 마음먹었을 때 제일 먼저 하고 싶었던 건 Frida를 켜고 후킹 스크립트를 돌려보는 거였다. 근데 막상하려고 하면 뭘 후킹할지 알아야 후킹을 하지, 그 앱이 어떤 파일들로 이루어져 있고 어떻게 실행되는지도 모르는 채로 스크립트부터 돌리면 결국 "왜 되는지 모르는 우회"만 반복하게 된다. 그래서 도구를 켜기 전에 APK 파일 자체를 뜯어보는 것부터 시작하기로 했다. APK는 어떻게 열어볼 수 있는지, 그냥 unzip으로 풀어보는 것과 APKTool로 디코딩하는 게 뭐가 다른지, 그리고 그 안에 있는 파일들이 실제로 앱을 실행시킬 때 어떤 역할을 하는지를 오늘 정리해본다.
 
 ## APK를 여는 두 가지 방법 — unzip과 APKTool
 
@@ -97,7 +97,7 @@ DEX는 ARM64 CPU가 바로 돌릴 수 있는 네이티브 코드가 아니다. �
 
 | Component | 역할 |
 |---|---|
-| Activity | 화면 하나 |
+| Activity | 화면 |
 | Service | 백그라운드 작업 |
 | BroadcastReceiver | 브로드캐스트 이벤트 수신 |
 | ContentProvider | 앱 간 데이터 공유 |
@@ -120,16 +120,16 @@ DEX는 ARM64 CPU가 바로 돌릴 수 있는 네이티브 코드가 아니다. �
 
 ## 정적분석이라는 것
 
-여기까지 한 건 전부 앱을 단 한 번도 실행하지 않고 한 작업이다. 압축을 풀거나 디코딩하고, 파일 구조를 보고, Manifest를 읽고, DEX가 실행되는 원리를 이해하는 것. 이걸 정적분석(Static Analysis)이라고 부른다. OWASP MASTG에서는 정적분석을 "앱을 실행하지 않고 소스코드나 바이너리를 분석하는 것"으로 정의하는데, 실무에서는 여기에 몇 가지가 더 포함된다.
+여기까지 한 건 전부 앱을 단 한 번도 실행하지 않고 한 작업이다. 압축을 풀거나 디코딩하고, 파일 구조를 보고, Manifest를 읽고, DEX가 실행되는 원리를 이해하는 것. 이걸 정적분석(Static Analysis)이라고 부른다. OWASP MASTG에서는 정적분석을 "앱을 실행하지 않고 소스코드나 바이너리를 분석하는 것"으로 정의하는데, 오늘 한 건 사실 그중에서도 초반부, 그러니까 구조를 파악하는 단계 정도다. 정적분석이라는 카테고리 자체는 훨씬 넓다.
 
 - **구조 분석**: 오늘 한 것처럼 APK 안에 어떤 파일이 있는지, Manifest에 어떤 컴포넌트와 권한이 선언돼 있는지 파악하는 것
 - **코드 리딩**: `classes.dex`를 JADX로 Java 형태로, 혹은 baksmali로 Smali 형태로 디컴파일해서 실제 로직을 읽는 것
 - **문자열/시크릿 탐색**: 하드코딩된 API 키, URL, 인증서 같은 게 코드나 `assets/` 안에 그대로 박혀있는지 찾는 것
 - **Native 바이너리 분석**: `lib/` 안의 `.so` 파일을 Ghidra나 IDA로 열어서 어셈블리 수준에서 로직을 확인하는 것
 
-이 네 가지만 해도 상당히 많은 걸 알 수 있다. 근데 정적분석에는 명확한 한계가 있다. R8로 난독화된 코드는 클래스/메서드 이름이 다 `a`, `b`, `c`로 바뀌어 있어서 로직 흐름은 보여도 의미를 파악하기 어렵다. 문자열이 런타임에 복호화되는 경우엔 코드만 봐서는 실제 값을 알 수 없다. 리플렉션으로 클래스를 동적으로 로드하거나, 서버에서 설정값을 받아와 그때그때 로직을 바꾸는 경우도 정적분석만으로는 잡아낼 수 없다. SSL Pinning처럼 "이 조건이 맞아야만 통과한다"는 로직도, 코드를 읽어서 조건을 이해하는 것과 실제로 그 조건을 우회해서 통과시키는 건 다른 얘기다.
+오늘은 이 중 구조 분석만 짚은 거고, JADX로 실제 코드를 읽는 것도, 시크릿을 뒤지는 것도, Ghidra로 `.so`를 여는 것도 아직 시작도 안 했다. 정적분석 하나만 놓고 봐도 아직 갈 길이 많이 남아 있다.
 
-그래서 다음 글부터는 실제로 앱을 돌려놓고 함수 호출을 가로채는 동적분석(Dynamic Analysis)으로 넘어간다. 오늘 정적분석으로 구조를 파악했다면, 다음은 그 구조 위에서 실제로 동작하는 로직을 실시간으로 조작해보는 단계다. 첫 타깃은 SSL Pinning이고, 도구는 Frida다.
+물론 정적분석에는 한계도 있다. R8로 난독화된 코드는 클래스/메서드 이름이 다 `a`, `b`, `c`로 바뀌어 있어서 로직 흐름은 보여도 의미를 파악하기 어렵다. 문자열이 런타임에 복호화되는 경우엔 코드만 봐서는 실제 값을 알 수 없고, 리플렉션으로 클래스를 동적으로 로드하거나 서버에서 받아온 설정값으로 로직이 바뀌는 경우도 코드만 읽어서는 잡히지 않는다. 이런 한계 때문에 결국 동적분석이 필요해지는 지점이 오긴 하는데, 그건 정적분석을 좀 더 파본 다음에 얘기해도 늦지 않을 것 같다.
 
 > 참고: [MASTG-TECH-0025: Automated Static Analysis — OWASP](https://mas.owasp.org/MASTG/techniques/android/MASTG-TECH-0025/) · [MASTG-TECH-0014: Static Analysis on Android — OWASP](https://mas.owasp.org/MASTG/techniques/android/MASTG-TECH-0014/)
 
@@ -252,15 +252,15 @@ Why this matters for security: these components can serve as entry points for ot
 
 ## What Static Analysis Actually Is
 
-Everything covered so far was done without ever running the app once — unzipping or decoding it, reading the file structure, reading the Manifest, understanding how DEX gets executed. This is Static Analysis. OWASP's MASTG defines it as examining an app's source code or binary without executing it, and in practice it usually covers a few distinct things:
+Everything covered so far was done without ever running the app once — unzipping or decoding it, reading the file structure, reading the Manifest, understanding how DEX gets executed. This is Static Analysis. OWASP's MASTG defines it as examining an app's source code or binary without executing it. What I did today is really just the early part of that — the structural stage. Static analysis as a category is much broader than this.
 
 - **Structural analysis**: figuring out what files are inside the APK and what components/permissions are declared in the Manifest, like we did today
 - **Reading the code**: decompiling `classes.dex` with JADX into Java-like source, or with baksmali into Smali, to actually read the logic
 - **Hunting for strings and secrets**: checking whether hardcoded API keys, URLs, or certificates are sitting in the code or in `assets/`
 - **Native binary analysis**: opening `.so` files in `lib/` with Ghidra or IDA to inspect logic at the assembly level
 
-These four alone reveal a lot. But static analysis has clear limits. Code obfuscated by R8 has its class and method names rewritten to `a`, `b`, `c`, so you can follow the logic's shape without understanding what it means. If strings are decrypted only at runtime, reading the code alone won't reveal the actual values. Reflection-based dynamic class loading, or logic that changes based on config fetched from a server, can't be caught through static analysis alone. And something like SSL Pinning — "this only passes if a specific condition is met" — reading the condition in code and actually bypassing it at runtime are two different problems entirely.
+Today only touched structural analysis. Actually reading the code with JADX, digging for secrets, opening `.so` files in Ghidra — none of that has even started yet. There's still a lot of ground left to cover in static analysis alone.
 
-That's why the next post moves into Dynamic Analysis — running the app for real and intercepting function calls as they happen. If today was about mapping the structure through static analysis, the next step is manipulating the logic that actually runs on top of that structure, in real time. First target: SSL Pinning. First tool: Frida.
+Static analysis does have limits, of course. Code obfuscated by R8 has its class and method names rewritten to `a`, `b`, `c`, so you can follow the logic's shape without understanding what it means. If strings are decrypted only at runtime, reading the code alone won't reveal the actual values, and reflection-based dynamic class loading or logic that changes based on config fetched from a server can't be caught by reading code alone either. Those limits are eventually what pull you toward dynamic analysis — but that's a conversation for after digging further into static analysis first.
 
 > Reference: [MASTG-TECH-0025: Automated Static Analysis — OWASP](https://mas.owasp.org/MASTG/techniques/android/MASTG-TECH-0025/) · [MASTG-TECH-0014: Static Analysis on Android — OWASP](https://mas.owasp.org/MASTG/techniques/android/MASTG-TECH-0014/)
