@@ -1,0 +1,141 @@
+---
+title: "APK 분석 3 - 암시적 Intent hijacking"
+date: 2026-08-23 00:00:00 +0900
+categories: [Mobile Hacking, Android]
+tags: [android, intent, implicit-intent, explicit-intent, apk-analysis]
+---
+
+지난 글에서는 `exported="true"`인 컴포넌트를 `am start`로 직접 강제호출하고, 그 안에서 nested Intent를 검증 없이 재실행하는 리디렉션 체이닝을 다뤘다. 그런데 그 글을 쓰면서 계속 걸리는 게 하나 있었다. 내가 만든 `QRConnectActivity`는 목적지(컴포넌트)를 코드에서 정확히 지정하는 **명시적 Intent**를 썼는데, 실무에서는 목적지를 아예 안 정하고 "이 액션 처리할 수 있는 앱 아무나 나와라" 하는 **암시적 Intent**도 많이 쓴다. 그럼 이 둘의 위험도가 진짜 다른지, 암시적 Intent에 민감 데이터를 실어보내면 실제로 누가 가로챌 수 있는지 이번엔 직접 테스트 앱 두 개(피해 앱 + 공격 앱)를 만들어서 확인해봤다.
+
+## 0. 명시적 Intent와 암시적 Intent란
+
+| 구분 | 명시적 Intent (Explicit) | 암시적 Intent (Implicit) |
+|---|---|---|
+| 정의 | 실행할 컴포넌트를 클래스명 등으로 정확히 지정 | 수행할 작업(Action)만 명시, 수신자는 시스템이 결정 |
+| 코드 예시 | `Intent(this, TargetActivity::class.java)` | `Intent("com.example.ACTION_XXX")` |
+| 수신자 결정 | 개발자가 코드에서 확정 | 시스템이 Manifest의 `intent-filter` 매칭으로 결정 |
+| 주 용도 | 앱 내부 화면 전환, 우리 앱 컴포넌트끼리 통신 | 다른 앱 기능 호출 (카메라, 공유, 브라우저 열기 등) |
+| 위험 포인트 | 상대적으로 안전 (수신자가 확정적) | 동일한 액션을 등록한 악성 앱이 있으면 가로챌 수 있음 |
+
+정의만 보면 당연한 얘기 같은데, "그래서 실제로 얼마나 쉽게 가로채지는지"는 직접 테스트 앱을 만들어봐야 감이 온다. 그래서 이번엔 민감 데이터(`secret`)를 담은 암시적 Intent를 쏘는 피해 앱과, 그 액션을 가로채는 공격 앱을 각각 만들어봤다.
+
+## 1. 기존 코드에 테스트용 버튼 추가
+
+피해 앱(`test_intent`)의 로그인 화면(`MainActivity`)에 버튼을 하나 추가해서, 누르면 민감 데이터를 담은 암시적 Intent를 쏘도록 만들었다.
+
+[![1](https://so-sung.github.io/assets/img/posts/2026-08-23/1.png)](https://so-sung.github.io/assets/img/posts/2026-08-23/1.png)
+*(캡처 1: Android Studio에서 MainActivity.kt의 btnImplicitLab 클릭 리스너 부분)*
+
+```kotlin
+// MainActivity.kt
+btnImplicitLab.setOnClickListener {
+    val intent = Intent("com.sosung.test_intent.ACTION_LAB").apply {
+        putExtra("secret", "VERY_SECRET_DATA")
+    }
+    startActivity(intent)
+}
+```
+
+여기서 포인트는 `Intent(this, XXXActivity::class.java)`처럼 컴포넌트를 지정한 게 아니라, `Intent("com.sosung.test_intent.ACTION_LAB")`처럼 **액션 문자열만 넣고** 던졌다는 것이다. "이 액션을 처리할 수 있는 아무 컴포넌트나 실행해라"는 뜻이 된다.
+
+정상적으로 이 액션을 받도록 만들어둔 `ImplicitLabActivity`는 Manifest에 이렇게 등록돼 있다.
+
+```xml
+<!-- AndroidManifest.xml (test_intent) -->
+<activity
+    android:name=".ImplicitLabActivity"
+    android:exported="true"
+    android:windowSoftInputMode="adjustResize">
+    <intent-filter>
+        <action android:name="com.sosung.test_intent.ACTION_LAB" />
+        <category android:name="android.intent.category.DEFAULT" />
+    </intent-filter>
+</activity>
+```
+
+## 2. 하이재킹을 시도할 공격 앱 코드 작성
+
+이제 별도 프로젝트(`intent_attacker`)로 공격 앱을 만들었다. 여기가 핵심인데, **피해 앱이 쓴 것과 똑같은 액션 문자열**로 intent-filter를 등록하기만 하면 된다.
+
+[![2](https://so-sung.github.io/assets/img/posts/2026-08-23/2.png)](https://so-sung.github.io/assets/img/posts/2026-08-23/2.png)
+*(캡처 2: intent_attacker 프로젝트의 AndroidManifest.xml)*
+
+```xml
+<!-- AndroidManifest.xml (intent_attacker) -->
+<activity
+    android:name=".AttackerActivity"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="com.sosung.test_intent.ACTION_LAB" />
+        <category android:name="android.intent.category.DEFAULT" />
+    </intent-filter>
+</activity>
+```
+
+그리고 이 액션으로 진입하면 전달받은 extra를 그대로 읽어서 보여주는 코드를 작성했다.
+
+```kotlin
+// AttackerActivity.kt
+class AttackerActivity : AppCompatActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        val hijackedSecret = intent.getStringExtra("secret")
+        Log.d("AttackerApp", "Hijacked Data: $hijackedSecret")
+        Toast.makeText(this, "🚨 [공격 성공] 가로챈 데이터: $hijackedSecret", Toast.LENGTH_LONG).show()
+    }
+}
+```
+
+여기서 하이재킹이 성립하는 코드적 특징은 딱 하나다: **피해 앱과 공격 앱이 액션 문자열(`com.sosung.test_intent.ACTION_LAB`)만 똑같이 맞추면, 시스템 입장에서는 둘 다 "이 Intent를 처리할 자격이 있는 컴포넌트"로 취급한다.** 패키지명이 다르든, 서명이 다르든, 시스템은 상관하지 않는다. 오직 `action` + `category` 매칭만 본다.
+
+## 3. 실제 실행하면 이렇게 하이재킹된다
+
+두 앱을 같은 기기(에뮬레이터)에 같이 설치한 상태에서, 피해 앱의 "Implicit Intent 테스트 실행" 버튼을 눌러봤다.
+
+[![3](https://so-sung.github.io/assets/img/posts/2026-08-23/3.png)](https://so-sung.github.io/assets/img/posts/2026-08-23/3.png)
+*(캡처 3: 버튼 클릭 시 뜨는 앱 선택 다이얼로그 — ImplicitLabActivity와 AttackerApp이 나란히 표시됨)*
+
+같은 액션을 처리할 수 있는 앱이 두 개라 시스템이 선택 다이얼로그를 띄운다. 여기서 사용자가 (혹은 실수로, 혹은 악성 앱이 우선순위를 높여서) `AttackerApp`을 선택하면 어떻게 되는지 확인했다.
+
+[![4](https://so-sung.github.io/assets/img/posts/2026-08-23/4.png)](https://so-sung.github.io/assets/img/posts/2026-08-23/4.png)
+*(캡처 4: AttackerApp이 토스트로 "🚨 [공격 성공] 가로챈 데이터: VERY_SECRET_DATA" 출력)*
+
+`secret` extra에 담아 보냈던 `VERY_SECRET_DATA`가 그대로 공격 앱에 전달된 게 확인된다. Logcat도 같이 찍어봤다.
+
+[![5](https://so-sung.github.io/assets/img/posts/2026-08-23/5.png)](https://so-sung.github.io/assets/img/posts/2026-08-23/5.png)
+*(캡처 5: `adb logcat`에서 `AttackerApp: Hijacked Data: VERY_SECRET_DATA` 라인)*
+
+## 4. AttackerApp만 설치돼 있으면 어떻게 될까
+
+선택 다이얼로그는 후보가 2개 이상일 때만 뜬다. 만약 사용자 기기에 정상 앱(ImplicitLabActivity를 가진 test_intent)은 없고 악성 앱만 설치돼 있다면?
+
+[![6](https://so-sung.github.io/assets/img/posts/2026-08-23/6.png)](https://so-sung.github.io/assets/img/posts/2026-08-23/6.png)
+*(캡처 6: test_intent를 지우고 intent_attacker만 남긴 상태에서 버튼을 눌렀을 때, 다이얼로그 없이 바로 AttackerActivity로 진입하는 장면)*
+
+이 경우엔 선택 다이얼로그조차 뜨지 않고 곧바로 `AttackerActivity`로 넘어간다. 사용자는 뭔가 선택할 기회조차 없이 그냥 데이터를 뺏기는 셈이다.
+
+## 5. 명시적 Intent로 바꾸면 막히는지 확인
+
+마지막으로, 위 코드를 명시적 Intent로 바꾸면 실제로 하이재킹이 막히는지도 확인했다.
+
+```kotlin
+// 보완 코드
+val intent = Intent(this, ImplicitLabActivity::class.java).apply {
+    putExtra("secret", "VERY_SECRET_DATA")
+}
+startActivity(intent)
+```
+
+[![7](https://so-sung.github.io/assets/img/posts/2026-08-23/7.png)](https://so-sung.github.io/assets/img/posts/2026-08-23/7.png)
+*(캡처 7: 명시적 Intent로 바꾼 뒤 버튼을 눌렀을 때, 선택 다이얼로그 없이 곧바로 ImplicitLabActivity로만 진입하는 장면 — AttackerApp이 설치돼 있어도 무관하게 정상 컴포넌트로만 감)*
+
+컴포넌트를 코드에서 확정해버리니 시스템이 다른 후보를 고려할 여지 자체가 없어졌다. `AttackerApp`이 여전히 설치돼 있어도 아무 영향이 없다.
+
+## 암시적/명시적 Intent, 정리하면서 중요하다고 느낀 점
+
+- 암시적 Intent의 위험은 "액션 문자열이 같으면 시스템이 패키지명·서명 상관없이 둘 다 후보로 본다"는 매칭 방식 자체에서 나온다. 코드 실수가 아니라 **메커니즘 자체가 그렇게 설계돼 있다.**
+- 선택 다이얼로그가 뜬다고 안전한 게 아니다. 후보가 하나뿐이면 다이얼로그 없이 바로 전달되기 때문에, "우리 앱만 설치된 정상적인 사용자 기기"를 가정하고 넘어가면 안 된다.
+- 반대로 명시적 Intent는 애초에 후보를 좁혀버리기 때문에, **앱 내부 통신이나 민감 데이터 전달에는 예외 없이 명시적 Intent를 써야 한다**는 게 이번 테스트로 체감됐다. "가능하면"이 아니라 "반드시"에 가깝다.
+- 암시적 Intent 자체를 쓰지 말라는 얘기는 아니다. 브라우저 열기, 공유하기처럼 "정말 아무 앱이나 처리해도 상관없는 작업"에는 여전히 암시적 Intent가 맞는 도구다. 문제는 **민감 데이터를 실어서 보낼 때 암시적 Intent를 쓰는 것**이다.
+
+다음 편은 PendingIntent 쪽으로 넘어가서, `FLAG_MUTABLE`로 만든 PendingIntent를 제3자가 받아서 내부 Intent를 변조하는 케이스를 테스트해볼 예정이다.
