@@ -1,7 +1,7 @@
 ---
 title: "APK 분석 2 - 인텐트 강제호출로 비밀번호 초기화까지 뚫어보기"
 date: 2026-08-16 00:00:00 +0900
-categories: [Android Security]
+categories: [Mobile Hacking, Android]
 tags: [android, intent, exported activity, intent redirection, adb, pentest]
 toc: true
 ---
