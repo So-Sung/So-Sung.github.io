@@ -1,7 +1,7 @@
 ---
 title: "APK 분석 1"
 date: 2026-08-09 09:00:00 +0900
-categories: [Android Security]
+categories: [Mobile Hacking, Android]
 tags: [android, apk, dex, art, apktool, static-analysis, reverse-engineering]
 toc: true
 ---
