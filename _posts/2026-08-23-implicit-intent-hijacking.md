@@ -3,6 +3,7 @@ title: "APK 분석 3 - 암시적 Intent 하이재킹 테스트"
 date: 2026-08-23 00:00:00 +0900
 categories: [Mobile Hacking, Android]
 tags: [android, intent, implicit-intent, explicit-intent, apk-analysis]
+toc: true
 ---
 
 지난 글에서는 `exported="true"`인 컴포넌트를 `am start`로 직접 강제호출하고, 그 안에서 nested Intent를 검증 없이 재실행하는 리디렉션 체이닝을 다뤘다. 그런데 그 글을 쓰면서 계속 걸리는 게 하나 있었다. 내가 만든 `QRConnectActivity`는 목적지(컴포넌트)를 코드에서 정확히 지정하는 **명시적 Intent**를 썼는데, 실무에서는 목적지를 아예 안 정하고 "이 액션 처리할 수 있는 앱 아무나 나와라" 하는 **암시적 Intent**도 많이 쓴다. 그럼 이 둘의 위험도가 진짜 다른지, 암시적 Intent에 민감 데이터를 실어보내면 실제로 누가 가로챌 수 있는지 이번엔 직접 테스트 앱 두 개(피해 앱 + 공격 앱)를 만들어서 확인해봤다.
