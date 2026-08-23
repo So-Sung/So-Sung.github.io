@@ -1,5 +1,5 @@
 ---
-title: "APK 분석 3 - 암시적 Intent, 수신자를 안 정하면 누가 채가는지 직접 확인해봤다"
+title: "APK 분석 3 - 암시적 Intent 하이재킹 테스트"
 date: 2026-08-23 00:00:00 +0900
 categories: [Mobile Hacking, Android]
 tags: [android, intent, implicit-intent, explicit-intent, apk-analysis]
