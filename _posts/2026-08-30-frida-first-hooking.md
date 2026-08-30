@@ -219,7 +219,7 @@ Java 레이어 후킹은 `Java.use`로 접근할 클래스명·메서드 시그�
 
 ---
 
-# (English) Frida 1 - First Steps into Mobile Hooking: Options and a Hands-On Walkthrough
+# Frida 1 - First Steps into Mobile Hooking: Options and a Hands-On Walkthrough
 
 In previous posts ([implicit-intent-hijacking](https://so-sung.github.io/posts/implicit-intent-hijacking/), [intent-redirect-chaining](https://so-sung.github.io/posts/intent-redirect-chaining/), [apk-build-and-execution](https://so-sung.github.io/posts/apk-build-and-execution/)), I covered static analysis — reading manifests and code to find vulnerabilities, and force-launching components directly with `am start`. But static analysis has a ceiling. You can read code and guess how a function behaves, but **you can't see what values actually flow in and out at the moment the function runs** — not without executing it. Some of what I tried to verify in earlier posts hit exactly this wall: "the code looks like this, but I need to see it happen at runtime to be sure." So this time I'm starting from scratch with Frida, a dynamic analysis tool.
 
