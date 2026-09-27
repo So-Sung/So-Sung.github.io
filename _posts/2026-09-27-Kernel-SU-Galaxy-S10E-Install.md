@@ -1,5 +1,5 @@
 ---
-title: "커널수 이식기 1 - Galaxy S10e(Exynos 9820)에 KernelSU-Next + SuSFS 심어보기: 빌드 실패에서 벽돌, 복구까지"
+title: "커널 수 설치- Galaxy S10e(Exynos 9820)에 KernelSU-Next + SuSFS 심어보기: 빌드 실패에서 벽돌, 복구까지"
 date: 2026-09-27 00:00:00 +0900
 categories: [Mobile Hacking, Android]
 tags: [android, kernelsu, susfs, exynos9820, galaxy-s10e, odin, twrp, rooting, kernel-build, research-note]
